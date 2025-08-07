@@ -112,11 +112,14 @@ def find_optimal_energy_window(df_predictions: pd.DataFrame, window_hours: int =
         "recommended_carbon_gCO2_kWh": round(best_row["predicted_carbonIntensity"], 2),
         "score": round(best_row["score"], 4)
     }
+
+
 def predict_price_carbon_for_demand(models: dict, power_demand_value: float, other_features: pd.DataFrame, feature_cols_per_model: dict) -> dict:
-    # Prepare inputs for price and carbonIntensity predictions
+    # Get feature sets
     price_features = feature_cols_per_model.get('price', [])
     carbon_features = feature_cols_per_model.get('carbonIntensity', [])
 
+    # Copy and inject the demanded power
     input_row = other_features.copy()
     input_row['powerDemand'] = power_demand_value
 
@@ -126,21 +129,23 @@ def predict_price_carbon_for_demand(models: dict, power_demand_value: float, oth
         if pd.api.types.is_datetime64_any_dtype(X_price[col]):
             X_price[col] = pd.to_datetime(X_price[col]).astype(np.int64) // 10**9
 
-
+    # Prepare input for carbonIntensity
     X_carbon = input_row[carbon_features].copy().fillna(0)
     for col in X_carbon.columns:
         if pd.api.types.is_datetime64_any_dtype(X_carbon[col]):
             X_carbon[col] = pd.to_datetime(X_carbon[col]).astype(np.int64) // 10**9
 
-
+    # Raw predictions
     pred_price = models['price'].predict(X_price)[0]
     pred_carbon = models['carbonIntensity'].predict(X_carbon)[0]
 
 
+    # Price scaling
     eur_to_usd_rate = 1.08
     price_adjustment_factor = 0.003
-    pred_price = (pred_price / 1000) * eur_to_usd_rate * price_adjustment_factor * 100  # USD/kWh
+    pred_price = (pred_price / 1000) * eur_to_usd_rate * price_adjustment_factor * 100
 
+    # Carbon intensity per kWh scaling
     epsilon = 1e-6
     pred_carbon = pred_carbon / (power_demand_value + epsilon)
     pred_carbon = np.clip(pred_carbon, 0, 2000)
@@ -149,6 +154,7 @@ def predict_price_carbon_for_demand(models: dict, power_demand_value: float, oth
         'predicted_price': pred_price,
         'predicted_carbonIntensity': pred_carbon
     }
+
 
 if __name__ == "__main__":
     logger.info("Starting full data processing and model training pipeline...")
