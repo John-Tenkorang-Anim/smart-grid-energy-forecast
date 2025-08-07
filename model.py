@@ -115,13 +115,17 @@ def find_optimal_energy_window(df_predictions: pd.DataFrame, window_hours: int =
 
 
 def predict_price_carbon_for_demand(models: dict, power_demand_value: float, other_features: pd.DataFrame, feature_cols_per_model: dict) -> dict:
+    # Same household scaling factor as in the main pipeline
+    household_power_scaling_factor = 1.25 / 20000
+    scaled_power_demand = power_demand_value * household_power_scaling_factor
+
     # Get feature sets
     price_features = feature_cols_per_model.get('price', [])
     carbon_features = feature_cols_per_model.get('carbonIntensity', [])
 
-    # Copy and inject the demanded power
+    # Copy and inject the scaled demanded power
     input_row = other_features.copy()
-    input_row['powerDemand'] = power_demand_value
+    input_row['powerDemand'] = scaled_power_demand
 
     # Prepare input for price
     X_price = input_row[price_features].copy().fillna(0)
@@ -139,7 +143,7 @@ def predict_price_carbon_for_demand(models: dict, power_demand_value: float, oth
     pred_price = models['price'].predict(X_price)[0]
     pred_carbon = models['carbonIntensity'].predict(X_carbon)[0]
 
-
+    # --- Apply same scaling as in __main__ ---
     # Price scaling
     eur_to_usd_rate = 1.08
     price_adjustment_factor = 0.003
@@ -147,13 +151,14 @@ def predict_price_carbon_for_demand(models: dict, power_demand_value: float, oth
 
     # Carbon intensity per kWh scaling
     epsilon = 1e-6
-    pred_carbon = pred_carbon / (power_demand_value + epsilon)
+    pred_carbon = pred_carbon / (scaled_power_demand + epsilon)
     pred_carbon = np.clip(pred_carbon, 0, 2000)
 
     return {
         'predicted_price': pred_price,
         'predicted_carbonIntensity': pred_carbon
     }
+
 
 
 if __name__ == "__main__":
