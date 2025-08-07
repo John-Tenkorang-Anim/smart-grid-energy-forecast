@@ -101,12 +101,21 @@ user_power_demand = st.number_input(
 
 if st.button("Predict price and CO2"):
     if models and 'price' in models and 'carbonIntensity' in models and feature_cols_per_model:
-        base_features = df.tail(1).copy()  # last row as context
+        base_features = df.tail(1).copy()  # latest row as base context
 
         try:
-            preds = predict_price_carbon_for_demand(models, user_power_demand, base_features, feature_cols_per_model)
-            st.write(f"**Predicted Price:** ${preds['predicted_price']:.4f} per kWh")
+            preds = predict_price_carbon_for_demand(
+                models=models,
+                power_demand_value=user_power_demand,
+                other_features=base_features,
+                feature_cols_per_model=feature_cols_per_model
+            )
+
+            preds['predicted_price'] = preds['predicted_price'] / 1000
+
+            st.write(f"**Predicted Price:** ${preds['predicted_price']:.6f} per kWh")
             st.write(f"**Predicted Carbon Intensity:** {preds['predicted_carbonIntensity']:.2f} gCO₂ per kWh")
+
         except Exception as e:
             st.error(f"Prediction error: {e}")
     else:
