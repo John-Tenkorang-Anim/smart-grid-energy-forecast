@@ -5,6 +5,7 @@ from preprocess import preprocess_data
 from model import load_models, predict, predict_price_carbon_for_demand, load_feature_cols
 from rl_agent import EnergyOptimizationRLAgent  # <-- RL agent import
 
+RETAIL_PRICE_MARKUP = 4.5
 st.title("California Energy Optimization System")
 
 @st.cache_data(show_spinner=True)
@@ -106,13 +107,16 @@ if st.button("Predict price and CO2"):
         try:
             preds = predict_price_carbon_for_demand(models, user_power_demand, base_features, feature_cols_per_model)
 
+            # Apply retail markup to predicted price here
+            retail_price = preds['predicted_price'] * RETAIL_PRICE_MARKUP
+
             # Show the scaled power demand used internally for prediction
             household_power_scaling_factor = 1.25 / 20000
             scaled_kwh = user_power_demand * household_power_scaling_factor
 
             st.write(f"**Input power demand:** {user_power_demand:.2f} kWh")
             st.write(f"**Scaled power demand (used internally):** {scaled_kwh:.6f} kWh")
-            st.write(f"**Predicted Price:** ${preds['predicted_price']:.6f} per kWh")
+            st.write(f"**Predicted Price:** ${retail_price:.6f} per kWh")
             st.write(f"**Predicted Carbon Intensity:** {preds['predicted_carbonIntensity']:.2f} gCO₂ per kWh")
         except Exception as e:
             st.error(f"Prediction error: {e}")

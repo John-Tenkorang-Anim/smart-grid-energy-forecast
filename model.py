@@ -112,6 +112,8 @@ def find_optimal_energy_window(df_predictions: pd.DataFrame, window_hours: int =
         "recommended_carbon_gCO2_kWh": round(best_row["predicted_carbonIntensity"], 2),
         "score": round(best_row["score"], 4)
     }
+RETAIL_PRICE_MARKUP = 4.5
+
 def predict_price_carbon_for_demand(models: dict, user_power_demand: float, other_features: pd.DataFrame, feature_cols_per_model: dict) -> dict:
     # The factor you use to scale from grid MW to household kWh in training/prediction outputs
     household_power_scaling_factor = 1.25 / 20000  # ~0.0000625
@@ -145,6 +147,7 @@ def predict_price_carbon_for_demand(models: dict, user_power_demand: float, othe
     price_adjustment_factor = 0.003
     pred_price_household_cents = (pred_price_grid / 1000) * eur_to_usd_rate * price_adjustment_factor * 100
 
+    pred_price_household_cents *= RETAIL_PRICE_MARKUP
     # Carbon intensity in gCO2/kWh = predicted total emissions divided by predicted power (household scale)
     # Use the user_power_demand (household scale) for denominator
     epsilon = 1e-6
@@ -183,6 +186,7 @@ if __name__ == "__main__":
     df_predictions["predicted_carbonIntensity"] = (
         df_predictions["predicted_carbonIntensity"] / (df_predictions["predicted_powerDemand"] + epsilon)
     )
+    df_predictions["predicted_price"] *= RETAIL_PRICE_MARKUP
     df_predictions["predicted_carbonIntensity"] = df_predictions["predicted_carbonIntensity"].clip(lower=0, upper=2000)
 
     logger.info("Calculated carbon intensity as gCO2/kWh")
