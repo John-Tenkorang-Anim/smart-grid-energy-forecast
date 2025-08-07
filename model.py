@@ -144,7 +144,7 @@ def predict_price_carbon_for_demand(models: dict, user_power_demand: float, othe
 
     # Convert price to household scale cents/kWh (same scaling as your training code)
     eur_to_usd_rate = 1.08
-    price_adjustment_factor = 0.003
+    price_adjustment_factor = 0.02
     pred_price_household_cents = (pred_price_grid / 1000) * eur_to_usd_rate * price_adjustment_factor * 100
 
     pred_price_household_cents *= RETAIL_PRICE_MARKUP
