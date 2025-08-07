@@ -112,44 +112,51 @@ def find_optimal_energy_window(df_predictions: pd.DataFrame, window_hours: int =
         "recommended_carbon_gCO2_kWh": round(best_row["predicted_carbonIntensity"], 2),
         "score": round(best_row["score"], 4)
     }
+def predict_price_carbon_for_demand(models: dict, user_power_demand: float, other_features: pd.DataFrame, feature_cols_per_model: dict) -> dict:
+    # The factor you use to scale from grid MW to household kWh in training/prediction outputs
+    household_power_scaling_factor = 1.25 / 20000  # ~0.0000625
 
-def predict_price_carbon_for_demand(models, power_demand_value, other_features, feature_cols_per_model):
-    # Use raw power_demand_value as feature (no scaling)
+    # Scale user input (household kWh) UP to grid scale expected by the model
+    scaled_power_demand_for_model = user_power_demand / household_power_scaling_factor
+
     input_row = other_features.copy()
-    input_row['powerDemand'] = power_demand_value  # DO NOT scale here
+    input_row['powerDemand'] = scaled_power_demand_for_model
 
+    # Get features used by price and carbonIntensity models
     price_features = feature_cols_per_model.get('price', [])
     carbon_features = feature_cols_per_model.get('carbonIntensity', [])
 
+    # Prepare input DataFrames for both models
     X_price = input_row[price_features].copy().fillna(0)
     X_carbon = input_row[carbon_features].copy().fillna(0)
 
-    # Convert datetime features if any
-    for X in [X_price, X_carbon]:
-        for col in X.columns:
-            if pd.api.types.is_datetime64_any_dtype(X[col]):
-                X[col] = pd.to_datetime(X[col]).astype(np.int64) // 10**9
+    # Convert datetime columns to int timestamps if any
+    for df_features in [X_price, X_carbon]:
+        for col in df_features.columns:
+            if pd.api.types.is_datetime64_any_dtype(df_features[col]):
+                df_features[col] = pd.to_datetime(df_features[col]).astype(np.int64) // 10**9
 
-    pred_price = models['price'].predict(X_price)[0]
-    pred_carbon = models['carbonIntensity'].predict(X_carbon)[0]
+    # Predict on grid scale features
+    pred_price_grid = models['price'].predict(X_price)[0]
+    pred_carbon_grid = models['carbonIntensity'].predict(X_carbon)[0]
 
-    # Now apply scaling ONLY to predicted power demand (output)
-    household_power_scaling_factor = 1.25 / 20000  # same as training
+    # Convert price to household scale cents/kWh (same scaling as your training code)
+    eur_to_usd_rate = 1.08
+    price_adjustment_factor = 0.003
+    pred_price_household_cents = (pred_price_grid / 1000) * eur_to_usd_rate * price_adjustment_factor * 100
 
-    # Assuming pred_powerDemand is predicted somewhere or you need to approximate it
-    # If your model predicts powerDemand, you can scale here
-    # For now, scale predicted carbon by scaled predicted power (or use epsilon to avoid div by zero)
-    scaled_pred_power = power_demand_value * household_power_scaling_factor
-
+    # Carbon intensity in gCO2/kWh = predicted total emissions divided by predicted power (household scale)
+    # Use the user_power_demand (household scale) for denominator
     epsilon = 1e-6
-    carbon_intensity = pred_carbon / (scaled_pred_power + epsilon)
-    carbon_intensity = min(carbon_intensity, 2000)  # clip max
+    carbon_intensity = pred_carbon_grid / (user_power_demand + epsilon)
+
+    # Clip carbon intensity to realistic max
+    carbon_intensity = min(carbon_intensity, 2000)
 
     return {
-        'predicted_price': pred_price,
+        'predicted_price': pred_price_household_cents,
         'predicted_carbonIntensity': carbon_intensity
     }
-
 
 
 if __name__ == "__main__":
