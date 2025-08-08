@@ -177,6 +177,34 @@ def predict_price_carbon_for_demand(models: dict, user_power_demand: float, othe
         'predicted_price': pred_price_household_cents,
         'predicted_carbonIntensity': carbon_intensity
     }
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import numpy as np
+
+def evaluate_model(y_true, y_pred, target_name="target"):
+    mae = mean_absolute_error(y_true, y_pred)
+    rmse = mean_squared_error(y_true, y_pred, squared=False)
+    r2 = r2_score(y_true, y_pred)
+    
+    # Avoid division by zero for MAPE calculation
+    nonzero_mask = y_true != 0
+    if nonzero_mask.any():
+        mape = np.mean(np.abs((y_true[nonzero_mask] - y_pred[nonzero_mask]) / y_true[nonzero_mask])) * 100
+    else:
+        mape = np.nan
+    
+    mean_actual = np.mean(y_true)
+    nrmse = rmse / mean_actual if mean_actual != 0 else np.nan
+
+    logger.info(f"Evaluating model: {target_name}")
+    logger.info(f"{target_name} -> MAE: {mae:.4f}, RMSE: {rmse:.4f}, R2: {r2:.4f}, MAPE: {mape:.2f}%, NRMSE: {nrmse:.4f}")
+
+    return {
+        "mae": mae,
+        "rmse": rmse,
+        "r2": r2,
+        "mape_percent": mape,
+        "nrmse": nrmse
+    }
 
 if __name__ == "__main__":
     logger.info("Starting full data processing and model training pipeline...")
