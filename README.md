@@ -184,6 +184,28 @@ After training, models were evaluated using Mean Absolute Error (MAE), Root Mean
 - The **price** model shows moderate performance; there is room to improve feature engineering and modeling.
 - The **carbonIntensity** model does not effectively capture the variation in carbon intensity, indicating need for better data, features, or modeling approaches.
 
+**Challenges:**
+Challenges Faced
+- Data Scaling and Units Consistency:
+One major challenge was correctly scaling between grid-level data (in MW) and household-level consumption (in kWh). Initial model outputs were unrealistic because of mismatched units, requiring careful normalization and rescaling for meaningful predictions.
+
+- Feature Selection for Multi-Target Models:
+Designing separate models for power demand, price, and carbon intensity meant carefully selecting feature sets to avoid data leakage, especially since some features were targets in other models.
+
+- Handling Sparse or Noisy Data:
+Electricity price and carbon intensity data often exhibited volatility and occasional gaps, which complicated model training and evaluation. Robust preprocessing and filling missing values was necessary to stabilize results.
+
+- Prediction Accuracy and Error Metrics:
+Initial evaluation metrics such as MAE and RMSE appeared very large due to scale issues, prompting implementation of relative error metrics (MAPE and normalized RMSE) for better interpretability.
+
+
+
+
+
+
+
+
+
 **Recommendations for future improvements:**
 
 - Enhance feature sets with external data sources (weather, market indicators, grid composition).
