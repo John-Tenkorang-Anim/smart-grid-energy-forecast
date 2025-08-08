@@ -5,6 +5,7 @@ import numpy as np
 import xgboost as xgb
 import joblib
 from preprocess import preprocess_data
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ def train_models(df: pd.DataFrame, target_cols: list, hours_ahead: int = 24):
     logger.info("Training XGBoost models...")
     models = {}
     feature_cols_per_model = {}
+    evaluation_metrics = {}
 
     for target in target_cols:
         if target == "powerDemand":
@@ -48,17 +50,32 @@ def train_models(df: pd.DataFrame, target_cols: list, hours_ahead: int = 24):
         y = df[target]
         X_train = X.iloc[:-hours_ahead]
         y_train = y.iloc[:-hours_ahead]
+        X_test = X.iloc[-hours_ahead:]
+        y_test = y.iloc[-hours_ahead:]
 
         model = xgb.XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=6,
                                  random_state=42, verbosity=0)
         model.fit(X_train, y_train)
         models[target] = model
 
+        # Evaluate on test set
+        y_pred = model.predict(X_test)
+        mae = mean_absolute_error(y_test, y_pred)
+        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+        r2 = r2_score(y_test, y_pred)
+
+        evaluation_metrics[target] = {
+            "MAE": mae,
+            "RMSE": rmse,
+            "R2": r2
+        }
+        logger.info(f"Evaluation for '{target}': MAE={mae:.4f}, RMSE={rmse:.4f}, R2={r2:.4f}")
+
         joblib.dump(model, os.path.join(MODEL_DIR, f"xgb_model_{target}.joblib"))
         logger.info(f"Model for '{target}' trained and saved.")
 
     save_feature_cols(feature_cols_per_model)
-    return models, feature_cols_per_model
+    return models, feature_cols_per_model, evaluation_metrics
 
 def load_models(target_cols: list) -> dict:
     models = {}
@@ -161,7 +178,6 @@ def predict_price_carbon_for_demand(models: dict, user_power_demand: float, othe
         'predicted_carbonIntensity': carbon_intensity
     }
 
-
 if __name__ == "__main__":
     logger.info("Starting full data processing and model training pipeline...")
     df_raw = preprocess_data()
@@ -169,7 +185,14 @@ if __name__ == "__main__":
     df_numeric["timestamp"] = df_raw["timestamp"]
     TARGET_VARS = ["powerDemand", "price", "carbonIntensity"]
 
-    models, feature_cols_per_model = train_models(df_numeric, TARGET_VARS)
+    models, feature_cols_per_model, evaluation_metrics = train_models(df_numeric, TARGET_VARS)
+
+    # Log evaluation metrics per target
+    for target, metrics in evaluation_metrics.items():
+        logger.info(
+            f"Model evaluation for '{target}': "
+            f"MAE = {metrics['MAE']:.4f}, RMSE = {metrics['RMSE']:.4f}, R2 = {metrics['R2']:.4f}"
+        )
 
     df_predictions = predict(models, df_numeric, feature_cols_per_model)
 
@@ -198,13 +221,3 @@ if __name__ == "__main__":
     print(df_predictions[["timestamp"] + [f"predicted_{t}" for t in TARGET_VARS]].tail(24))
 
     logger.info("Pipeline complete.")
-
-
-
-
-
-
-
-
-
-

@@ -168,6 +168,30 @@ streamlit run app.py
 - **Evaluation:** Trained on historical data, validated on holdout sets.
 
 ---
+### Model Evaluation and Recommendations
+
+After training, models were evaluated using Mean Absolute Error (MAE), Root Mean Squared Error (RMSE), and the Coefficient of Determination (R²) on the training dataset:
+
+| Target          | MAE     | RMSE    | R²     |
+|-----------------|---------|---------|--------|
+| powerDemand     | 1145.12 | 1670.81 | 0.89   |
+| price           | 2.73    | 4.39    | 0.77   |
+| carbonIntensity | 0.14    | 0.16    | 0.00   |
+
+**Interpretation:**
+
+- The **powerDemand** model demonstrates strong predictive accuracy and explains nearly 90% of variance.
+- The **price** model shows moderate performance; there is room to improve feature engineering and modeling.
+- The **carbonIntensity** model does not effectively capture the variation in carbon intensity, indicating need for better data, features, or modeling approaches.
+
+**Recommendations for future improvements:**
+
+- Enhance feature sets with external data sources (weather, market indicators, grid composition).
+- Experiment with advanced machine learning models (ensemble methods, deep learning).
+- Implement cross-validation and continuous monitoring for model robustness.
+- Consider domain knowledge integration and hybrid physics-ML modeling for carbon intensity.
+
+These steps will improve model reliability and usability for forecasting electricity demand, pricing, and environmental impact at the household level.
 
 ## Streamlit App
 
